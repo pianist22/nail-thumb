@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id
+  threads   Thread[]
+  createdAt DateTime @default(now())
+}
+
+model Thread {
+  id          String      @id @default(cuid())
+  userId      String
+  title       String
+  slug        String      @unique
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  messages    Message[]
+  generations Generation[]
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  threadId  String
+  role      String
+  content   Json
+  createdAt DateTime @default(now())
+
+  thread    Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId])
+}
+
+model Generation {
+  id               String   @id @default(cuid())
+  threadId          String
+  parentGenerationId String? // ✅ NEW (for refinements)
+
+  promptRaw         String
+  promptRewritten   String
+  contextImageUrl   String?
+  variants          Json
+
+  refinementCount   Int      @default(0)
+  thumbnailCount    Int      @default(1)
+  createdAt         DateTime @default(now())
+
+  thread            Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  parentGeneration  Generation? @relation("RefinementTree", fields: [parentGenerationId], references: [id])
+  children          Generation[] @relation("RefinementTree")
+
+  @@index([threadId])
+  @@index([parentGenerationId])
+}
+
+model RateLimit {
+  id        String   @id @default(cuid())
+  userId    String
+  date      String   // YYYY-MM-DD
+  count     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([userId])
+}
+
